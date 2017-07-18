@@ -14,13 +14,13 @@ import (
 )
 
 //AppFunc is the app function to be passed in
-type AppFunc func(map[string]interface{}) error
+type AppFunc func(map[string]interface{}, []string) error
 
 //RunApp takes a function and handles the bolt communication
-func RunApp(boltURL, userName, passWord string, af AppFunc) error {
+func RunApp(boltURL, userName, passWord string, af AppFunc, args ...string) error {
 	var payload = make(map[string]interface{})
 	//run app function
-	err := af(payload)
+	err := af(payload, args)
 	if err != nil {
 		fmt.Println(`error in app function: `, err)
 		return err
