@@ -14,10 +14,10 @@ import (
 )
 
 //AppFunc is the app function to be passed in
-type AppFunc func(map[string]interface{}, []string) error
+type AppFunc func(map[string]interface{}, []interface{}) error
 
 //RunApp takes a function and handles the bolt communication
-func RunApp(boltURL, userName, passWord string, af AppFunc, args ...string) error {
+func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{}) error {
 	var payload = make(map[string]interface{})
 	//run app function
 	err := af(payload, args)
@@ -68,12 +68,12 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...string) erro
 
 	//set auth and header
 	req.SetBasicAuth(userName, "pw ignored")
+	req.Close = true //close the request
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("error in client.Do: ", err)
 		return err
 	}
-	defer resp.Body.Close()
 	//read response body
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -81,6 +81,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...string) erro
 		return err
 	}
 	_ = body
-
+	//explicitly close the body
+	resp.Body.Close()
 	return err
 }
