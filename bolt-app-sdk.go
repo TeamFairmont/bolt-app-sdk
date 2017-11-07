@@ -64,7 +64,8 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 		},
 		DisableCompression: true, // Compressed TLS is vulnerable to attacks
 	}
-	client := &http.Client{Transport: tr}
+	timeout := time.Duration(8 * time.Minute)
+	client := &http.Client{Timeout: timeout, Transport: tr}
 
 	//set auth and header
 	req.SetBasicAuth(userName, "pw ignored")
