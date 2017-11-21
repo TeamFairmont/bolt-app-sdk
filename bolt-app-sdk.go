@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/TeamFairmont/boltshared/security"
+	cv3Intigration "github.com/TeamFairmont/fairmont-search/cv3Intigration/apiCalls"
 )
 
 //AppFunc is the app function to be passed in
@@ -85,4 +86,27 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 	//explicitly close the body
 	resp.Body.Close()
 	return err
+}
+
+//ScheduleApp is a wrapper that will RunApp on a passed in interval //currently interval is an int value
+func ScheduleApp(hour int, boltURL, userName, passWord string, af AppFunc, args ...interface{}) error {
+	for true {
+		//TODO location should be loaded from config
+		utc, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			fmt.Println("error loading location", err)
+		}
+		var t = time.Now().In(utc).Hour()
+		if t == hour {
+			err = RunApp(boltURL, userName, passWord, cv3Intigration.GetCategories, args)
+			if err != nil {
+				fmt.Println("error running bolt app: ", err)
+			}
+		} else if t > hour { //wait 24 hours minus the difference
+			time.Sleep(time.Duration(24-(t-hour)) * time.Hour)
+		} else { //if t < hour // wait the difference
+			time.Sleep(time.Duration(hour-t) * time.Hour)
+		}
+	}
+	return nil
 }
