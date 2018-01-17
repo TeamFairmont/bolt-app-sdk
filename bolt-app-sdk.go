@@ -14,18 +14,19 @@ import (
 )
 
 //AppFunc is the app function to be passed in
-type AppFunc func(map[string]interface{}, chan map[string]interface{}, []interface{}) error
+type AppFunc func(map[string]interface{}, chan map[string]interface{}, chan []byte, chan bool, []interface{}) error
 
 //type AppFunc func(...interface{}) error
 
 //RunApp takes a function and handles the bolt communication
 func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{}) error {
 	var payloadChan = make(chan map[string]interface{}) //channel to send and recieve payloads
+	var respBodyChan = make(chan []byte, 1)             //channel to send and receive response body
 	var doneChan = make(chan bool)                      //channel to signal the app function is done
 	go func() {
 		var payload = make(map[string]interface{}) //TODO probably do not need anymore
 		//run app function
-		err := af(payload, payloadChan, args)
+		err := af(payload, payloadChan, respBodyChan, doneChan, args)
 		if err != nil {
 			fmt.Println(`error in app function: `, err)
 			return
@@ -96,7 +97,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 					fmt.Println(err)
 					return //err
 				}
-				_ = body
+				respBodyChan <- body
 				//explicitly close the body
 				resp.Body.Close()
 			case <-doneChan: //doneChan signal recieved, end the process
