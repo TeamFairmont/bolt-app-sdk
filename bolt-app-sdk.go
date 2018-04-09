@@ -79,6 +79,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
+		fmt.Println("this error does not seem to effect the data sent")
 		return err
 	}
 	_ = body
