@@ -1,0 +1,19 @@
+{
+	"boltURL": "http://localhost:8888",
+	"userName": "searchgroup",
+	"password": "open_to_public",
+	"Apps": {
+		"/get-config": {
+			"boltURL": "http://localhost:8888",
+			"commandName":"/get-config",
+			"userName": "searchgroup",
+			"password": "open_to_public",
+			"Args": null,
+			"schedule": {
+				"every": 10,
+				"unit": "seconds",
+				"at": ""
+			}
+		}
+	}
+}
