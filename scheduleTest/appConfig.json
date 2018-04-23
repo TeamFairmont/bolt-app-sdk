@@ -14,6 +14,18 @@
 				"unit": "seconds",
 				"at": ""
 			}
+		},
+		"/request/v1/search":{
+			"boltURL": "http://localhost:8888",
+			"commandName":"/request/v1/search",
+			"userName": "searchgroup",
+			"password": "open_to_public",
+			"Args": null,
+			"schedule": {
+				"every": 6,
+				"unit": "seconds",
+				"at": ""
+			}
 		}
 	}
 }

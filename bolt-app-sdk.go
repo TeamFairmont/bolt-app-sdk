@@ -58,7 +58,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 	var wg = sync.WaitGroup{}
 	go func(wg *sync.WaitGroup) {
 		wg.Add(1)
-		var payload = make(map[string]interface{}) //TODO probably do not need anymore
+		var payload = make(map[string]interface{}, 1) //TODO probably do not need anymore
 		//run app function
 		err := af(payload, payloadChan, respBodyChan, doneChan, args)
 		if err != nil {
@@ -82,7 +82,6 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 					errChan <- err
 					return
 				}
-
 				// Prepare the payload with hmac encoding
 				// Encode the message to send
 				hmacToSend, err := security.EncodeHMAC(
@@ -118,6 +117,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 					},
 					DisableCompression: true, // Compressed TLS is vulnerable to attacks
 				}
+
 				timeout := time.Duration(8 * time.Minute)
 				client := &http.Client{Timeout: timeout, Transport: tr}
 
@@ -139,9 +139,8 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 					errChan <- err
 					return
 				}
-				respBodyChan <- body
-				//explicitly close the body
 				resp.Body.Close()
+				respBodyChan <- body
 			case <-doneChan: //doneChan signal recieved, end the process
 				wg.Done()
 				return
@@ -167,54 +166,54 @@ func RunAppCTX(appCTX AppCTX) error {
 }
 
 //ScheduleApp is a wrapper that will RunApp on a passed in interval //currently interval is an int value
-func ScheduleApp(js JobSchedule, task func()) error {
+func ScheduleApp(js JobSchedule, task func(), scheduler *gocron.Scheduler) error {
 	if js.At == "" {
 		switch strings.ToLower(js.Unit) {
 		case "seconds":
-			gocron.Every(js.Every).Seconds().Do(task)
+			scheduler.Every(js.Every).Seconds().Do(task)
 		case "minutes":
-			gocron.Every(js.Every).Minutes().Do(task)
+			scheduler.Every(js.Every).Minutes().Do(task)
 		case "hours":
-			gocron.Every(js.Every).Hours().Do(task)
+			scheduler.Every(js.Every).Hours().Do(task)
 		case "days":
-			gocron.Every(js.Every).Days().Do(task)
+			scheduler.Every(js.Every).Days().Do(task)
 		case "weeks":
-			gocron.Every(js.Every).Weeks().Do(task)
+			scheduler.Every(js.Every).Weeks().Do(task)
 		case "monday":
-			gocron.Every(js.Every).Monday().Do(task)
+			scheduler.Every(js.Every).Monday().Do(task)
 		case "tuesday":
-			gocron.Every(js.Every).Tuesday().Do(task)
+			scheduler.Every(js.Every).Tuesday().Do(task)
 		case "wednesday":
-			gocron.Every(js.Every).Wednesday().Do(task)
+			scheduler.Every(js.Every).Wednesday().Do(task)
 		case "thursday":
-			gocron.Every(js.Every).Thursday().Do(task)
+			scheduler.Every(js.Every).Thursday().Do(task)
 		case "friday":
-			gocron.Every(js.Every).Friday().Do(task)
+			scheduler.Every(js.Every).Friday().Do(task)
 		default:
 			fmt.Println("unit did not match anything in the switch")
 		}
 	} else { // At field is populated
 		switch strings.ToLower(js.Unit) {
 		case "seconds":
-			gocron.Every(js.Every).Seconds().At(js.At).Do(task)
+			scheduler.Every(js.Every).Seconds().At(js.At).Do(task)
 		case "minutes":
-			gocron.Every(js.Every).Minutes().At(js.At).Do(task)
+			scheduler.Every(js.Every).Minutes().At(js.At).Do(task)
 		case "hours":
-			gocron.Every(js.Every).Hours().At(js.At).Do(task)
+			scheduler.Every(js.Every).Hours().At(js.At).Do(task)
 		case "days":
-			gocron.Every(js.Every).Days().At(js.At).Do(task)
+			scheduler.Every(js.Every).Days().At(js.At).Do(task)
 		case "weeks":
-			gocron.Every(js.Every).Weeks().At(js.At).Do(task)
+			scheduler.Every(js.Every).Weeks().At(js.At).Do(task)
 		case "monday":
-			gocron.Every(js.Every).Monday().At(js.At).Do(task)
+			scheduler.Every(js.Every).Monday().At(js.At).Do(task)
 		case "tuesday":
-			gocron.Every(js.Every).Tuesday().At(js.At).Do(task)
+			scheduler.Every(js.Every).Tuesday().At(js.At).Do(task)
 		case "wednesday":
-			gocron.Every(js.Every).Wednesday().At(js.At).Do(task)
+			scheduler.Every(js.Every).Wednesday().At(js.At).Do(task)
 		case "thursday":
-			gocron.Every(js.Every).Thursday().At(js.At).Do(task)
+			scheduler.Every(js.Every).Thursday().At(js.At).Do(task)
 		case "friday":
-			gocron.Every(js.Every).Friday().At(js.At).Do(task)
+			scheduler.Every(js.Every).Friday().At(js.At).Do(task)
 		default:
 			fmt.Println("unit did not match anything in the switch")
 		}
@@ -234,5 +233,54 @@ func LoadConfig(cfgPath string) (*ConfigCTX, error) {
 	if err != nil {
 		return &cfg, err
 	}
+	for _, app := range cfg.Apps {
+		CheckBoltAppCredentials(&app, &cfg)
+	}
+
 	return &cfg, nil
+}
+
+//CheckBoltAppCredentials will check the bolt app's BoltURL, UserName and, PassWord are set, if not set them to the global settings from the configPath
+func CheckBoltAppCredentials(app *AppCTX, appConfig *ConfigCTX) {
+	switch {
+	case app.BoltURL == "":
+		app.BoltURL = appConfig.BoltURL
+		fallthrough
+	case app.UserName == "":
+		app.UserName = appConfig.UserName
+		fallthrough
+	case app.PassWord == "":
+		app.PassWord = appConfig.PassWord
+	}
+}
+
+//RunScheduledAppsFromConfig will run scheduled apps from a passed in BoltAppSdk.Config and a function map, where the map keys match the app command names.
+func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFunc, scheduler *gocron.Scheduler) {
+	var wg2 = sync.WaitGroup{}
+	wg2.Add(1)
+	var count = 0
+	for command, app := range appConfig.Apps {
+		app.AF = appFuncMap[command]
+
+		fmt.Println("running app: ", command)
+		go func(wg2 *sync.WaitGroup, app AppCTX) {
+			wg2.Add(1)
+			fmt.Println("after add")
+			err := ScheduleApp(app.Schedule, func() { RunAppCTX(app) }, scheduler)
+			if err != nil {
+				fmt.Println("error: ", err)
+			}
+			wg2.Done()
+			fmt.Println("after wg2 done")
+		}(&wg2, app)
+		if count == len(appConfig.Apps)-1 {
+			wg2.Done()
+			fmt.Println("special wg done")
+		}
+		count++
+	}
+	//time.Sleep(50000)
+	wg2.Wait()
+	fmt.Println("after wait")
+	<-scheduler.Start()
 }
