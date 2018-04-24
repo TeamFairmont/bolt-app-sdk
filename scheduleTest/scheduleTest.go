@@ -11,40 +11,24 @@ import (
 var configPath = "./appConfig.json"
 
 func main() {
+	//ready gocron.Scheduler
 	var scheduler = gocron.Scheduler{}
+	//get bolt app config
 	appConfig, err := boltAppSdk.LoadConfig(configPath)
 	if err != nil {
 		fmt.Println(err)
-	}
+	} //set appFunctionMap
 	appFuncMap := map[string]boltAppSdk.AppFunc{
 		"/get-config":        boltsdkFunctions.G1etBoltConfigAppFunc,
 		"/request/v1/search": SearchAppFunction,
+	} //schedule and run apps
+	err = boltAppSdk.RunScheduledAppsFromConfig(*appConfig, appFuncMap, &scheduler)
+	if err != nil {
+		fmt.Println("error in scheduleTest.go: ", err)
 	}
-	boltAppSdk.RunScheduledAppsFromConfig(*appConfig, appFuncMap, &scheduler)
-
-	/*
-		var wg = sync.WaitGroup{}
-		for command, app := range appConfig.Apps {
-			app.AF = appFuncMap[command]
-			fmt.Println("running app: ", command)
-			go func(wg *sync.WaitGroup, app boltAppSdk.AppCTX) {
-				//wg.Add(1)
-				//var mmm = sync.RWMutex{}
-				//mmm.Lock()
-				err = boltAppSdk.ScheduleApp(app.Schedule, func() { fmt.Println("sched func"); boltAppSdk.RunAppCTX(app) }, &scheduler)
-				if err != nil {
-					fmt.Println("error: ", err)
-				}
-				//mmm.Unlock()
-				//wg.Done()
-				fmt.Println("wg.done()")
-			}(&wg, app)
-		}
-		//wg.Wait()
-		//fmt.Println("wg.wait")
-		<-scheduler.Start()
-		fmt.Println("never here")
-	*/
+	//wait forever
+	var forever = make(chan bool)
+	<-forever
 }
 
 //SearchAppFunction is a sample app function to use the fairmont searches search api actually
@@ -53,7 +37,7 @@ func SearchAppFunction(p map[string]interface{}, payloadChan chan map[string]int
 	//ready empty payload to be send
 	searchPayload := map[string]interface{}{
 		"category":     "undefined",
-		"resultOffset": "0",
+		"resultOffset": 0,
 		"searchKey":    "fruit",
 		"storeID":      "gourney",
 	}
@@ -63,7 +47,7 @@ func SearchAppFunction(p map[string]interface{}, payloadChan chan map[string]int
 	fmt.Println("payload sent")
 	//receive response from bolt
 	respBytes := <-respBodyChan
-	fmt.Println("respBytes created")
 	fmt.Println(string(respBytes))
+	fmt.Println("respBytes created")
 	return nil
 }

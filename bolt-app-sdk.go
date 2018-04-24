@@ -254,33 +254,32 @@ func CheckBoltAppCredentials(app *AppCTX, appConfig *ConfigCTX) {
 	}
 }
 
-//RunScheduledAppsFromConfig will run scheduled apps from a passed in BoltAppSdk.Config and a function map, where the map keys match the app command names.
-func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFunc, scheduler *gocron.Scheduler) {
+//RunScheduledAppsFromConfig will run scheduled apps from a passed in BoltAppSdk.Config and a function map,  as well as the gocron.Scheduler where the map keys match the app command names.
+func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFunc, scheduler *gocron.Scheduler) error {
 	var wg2 = sync.WaitGroup{}
-	wg2.Add(1)
-	var count = 0
+	var errChan = make(chan error, 1)
+	var err error
+	//range over passed in apps, from the appConfig
 	for command, app := range appConfig.Apps {
+		wg2.Add(1)
+		//assign the app function to the appCTX, from the passed in appFunctionMap
 		app.AF = appFuncMap[command]
-
-		fmt.Println("running app: ", command)
 		go func(wg2 *sync.WaitGroup, app AppCTX) {
-			wg2.Add(1)
-			fmt.Println("after add")
-			err := ScheduleApp(app.Schedule, func() { RunAppCTX(app) }, scheduler)
+			err = ScheduleApp(app.Schedule, func() { RunAppCTX(app) }, scheduler)
 			if err != nil {
-				fmt.Println("error: ", err)
+				errChan <- errors.New("Error in RunScheduledAppsFromConfig(): " + err.Error())
 			}
 			wg2.Done()
-			fmt.Println("after wg2 done")
 		}(&wg2, app)
-		if count == len(appConfig.Apps)-1 {
-			wg2.Done()
-			fmt.Println("special wg done")
-		}
-		count++
 	}
-	//time.Sleep(50000)
 	wg2.Wait()
-	fmt.Println("after wait")
-	<-scheduler.Start()
+	go func() { //run in go routine as this will block execution otherwise
+		<-scheduler.Start()
+	}() //check error, or return nil
+	select {
+	case err := <-errChan:
+		return err
+	default:
+		return nil
+	}
 }
