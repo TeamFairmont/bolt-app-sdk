@@ -20,7 +20,7 @@
 			"commandName":"/request/v1/search",
 			"userName": "searchgroup",
 			"password": "open_to_public",
-			"Args": null,
+			"Args": ["fruit", "gourney"],
 			"schedule": {
 				"every": 6,
 				"unit": "seconds",

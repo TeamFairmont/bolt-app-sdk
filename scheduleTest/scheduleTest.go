@@ -35,11 +35,15 @@ func main() {
 func SearchAppFunction(p map[string]interface{}, payloadChan chan map[string]interface{}, respBodyChan chan []byte, doneChan chan bool, args []interface{}) error {
 	fmt.Println("SearchAppFunction started")
 	//ready empty payload to be send
+	for _, v := range args {
+		fmt.Println(v)
+	}
+	fmt.Println(args)
 	searchPayload := map[string]interface{}{
 		"category":     "undefined",
 		"resultOffset": 0,
-		"searchKey":    "fruit",
-		"storeID":      "gourney",
+		"searchKey":    fmt.Sprint(args[0]),
+		"storeID":      fmt.Sprint(args[1]),
 	}
 	fmt.Println("payload created")
 	//send payload

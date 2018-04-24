@@ -158,7 +158,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 
 //RunAppCTX is a wrapper for RunApp so it can use a struct
 func RunAppCTX(appCTX AppCTX) error {
-	err := RunApp(appCTX.BoltURL+appCTX.CommandName, appCTX.UserName, appCTX.PassWord, appCTX.AF, appCTX.Args)
+	err := RunApp(appCTX.BoltURL+appCTX.CommandName, appCTX.UserName, appCTX.PassWord, appCTX.AF, appCTX.Args...)
 	if err != nil {
 		return err
 	}
