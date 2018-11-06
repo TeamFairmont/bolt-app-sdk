@@ -48,6 +48,13 @@ type JobSchedule struct {
 	At    string `json:"at"`    //a 24:00 time to run the function at e.g. gocron.Every(1).Days().At("11:30").Do(thisFunc)
 }
 
+//Store holds store specific CV3 webservice Credentials
+type Store struct {
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Storename string `json:"storename"`
+}
+
 //type AppFunc func(...interface{}) error
 
 //RunApp takes a function and handles the bolt communication
@@ -282,4 +289,65 @@ func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFu
 	default:
 		return nil
 	}
+}
+
+//SendPayloadToBolt simplifies sending the payload to bolt
+func SendPayloadToBolt(payload interface{}, boltURL, authName, hmacPass string) ([]byte, error) {
+	//marshal the payload into json object
+	p, err := json.Marshal(payload)
+	if err != nil {
+		err = errors.New("Error Unmarshalling payload from Bolt App Func: " + err.Error())
+		return nil, err
+	}
+	// Prepare the payload with hmac encoding
+	// Encode the message to send
+	hmacToSend, err := security.EncodeHMAC(
+		hmacPass,
+		string(p),
+		strconv.FormatInt(time.Now().Unix(), 10),
+	)
+	if err != nil {
+		err = errors.New("Error encoding payload with HMAC in Bolt App Sdk: " + err.Error())
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", boltURL, bytes.NewBuffer(hmacToSend))
+	if err != nil {
+		err = errors.New("Error making http request in Bolt App Sdk: " + err.Error())
+		return nil, err
+	}
+
+	// The tls.Config settings are set server side, but may also be set client side.
+	// InsecureSkipVerify allows self-signed certificates in development environments.
+	// This must be set to false for production using a trusted certificate authority.
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12, // Communicate with TLS 1.2 (771)    	PreferServerCipherSuites: true,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+		},
+		DisableCompression: true, // Compressed TLS is vulnerable to attacks
+	}
+
+	timeout := time.Duration(8 * time.Minute)
+	client := &http.Client{Timeout: timeout, Transport: tr}
+
+	//set auth and header
+	req.SetBasicAuth(authName, "pw ignored")
+	req.Close = true //close the request
+	resp, err := client.Do(req)
+	if err != nil {
+		err = errors.New("Error in Client.Do in Bolt App Sdk: " + err.Error())
+		return nil, err
+	}
+	//read response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = errors.New("Error reading response body in Bolt App Sdk: " + err.Error())
+		return nil, err
+	}
+	resp.Body.Close()
+	return body, nil
 }
