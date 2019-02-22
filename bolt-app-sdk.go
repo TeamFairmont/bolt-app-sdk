@@ -20,7 +20,7 @@ import (
 var errChan = make(chan error, 1)
 
 //AppFunc is the app function to be passed in
-type AppFunc func(map[string]interface{}, chan map[string]interface{}, chan []byte, chan bool, []interface{}) error
+type AppFunc func(map[string]interface{}, chan map[string]interface{}, chan []byte, chan bool, AppCTX) error
 
 //ConfigCTX will hold the config file information for a Bolt App
 type ConfigCTX struct {
@@ -32,13 +32,22 @@ type ConfigCTX struct {
 
 //AppCTX will hold the data to run an AppCTX
 type AppCTX struct {
-	BoltURL     string  `json:"boltURL"`
-	CommandName string  `json:"commandName"`
-	UserName    string  `json:"userName"`
-	PassWord    string  `json:"password"`
-	AF          AppFunc `json:"-"`
-	Args        []interface{}
-	Schedule    JobSchedule `json:"schedule"`
+	StoreName          string  `json:"storeName"`
+	BoltURL            string  `json:"boltURL"`
+	CommandName        string  `json:"commandName"`
+	UserName           string  `json:"userName"`
+	PassWord           string  `json:"password"`
+	AF                 AppFunc `json:"-"`
+	Args               []interface{}
+	Schedule           JobSchedule        `json:"schedule"`
+	CV3WebServiceCreds CV3WebServiceCreds `json:"cv3WebServiceCreds"`
+}
+
+//CV3WebServiceCreds is the struct to hold data for a clients CV3 web service Credentials
+type CV3WebServiceCreds struct {
+	User      string `json:"user"`
+	Pass      string `json:"pass"`
+	ServiceID string `json:"serviceID"`
 }
 
 //JobSchedule holds the information to schedule jobs
@@ -58,7 +67,7 @@ type Store struct {
 //type AppFunc func(...interface{}) error
 
 //RunApp takes a function and handles the bolt communication
-func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{}) error {
+func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error {
 	var payloadChan = make(chan map[string]interface{}) //channel to send and recieve payloads
 	var respBodyChan = make(chan []byte, 1)             //channel to send and receive response body
 	var doneChan = make(chan bool)                      //channel to signal the app function is done
@@ -67,7 +76,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 		wg.Add(1)
 		var payload = make(map[string]interface{}, 1) //TODO probably do not need anymore
 		//run app function
-		err := af(payload, payloadChan, respBodyChan, doneChan, args)
+		err := af(payload, payloadChan, respBodyChan, doneChan, appCTX)
 		if err != nil {
 			err = errors.New("Error in Bolt App Function: " + err.Error())
 			errChan <- err
@@ -165,7 +174,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, args ...interface{})
 
 //RunAppCTX is a wrapper for RunApp so it can use a struct
 func RunAppCTX(appCTX AppCTX) error {
-	err := RunApp(appCTX.BoltURL+appCTX.CommandName, appCTX.UserName, appCTX.PassWord, appCTX.AF, appCTX.Args...)
+	err := RunApp(appCTX.BoltURL+appCTX.CommandName, appCTX.UserName, appCTX.PassWord, appCTX.AF, appCTX)
 	if err != nil {
 		return err
 	}
@@ -267,17 +276,23 @@ func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFu
 	var errChan = make(chan error, 1)
 	var err error
 	//range over passed in apps, from the appConfig
-	for command, app := range appConfig.Apps {
-		wg2.Add(1)
-		//assign the app function to the appCTX, from the passed in appFunctionMap
-		app.AF = appFuncMap[command]
-		go func(wg2 *sync.WaitGroup, app AppCTX) {
-			err = ScheduleApp(app.Schedule, func() { RunAppCTX(app) }, scheduler)
-			if err != nil {
-				errChan <- errors.New("Error in RunScheduledAppsFromConfig(): " + err.Error())
-			}
-			wg2.Done()
-		}(&wg2, app)
+	for _, app := range appConfig.Apps {
+		fmt.Println("app: ", app.Args)
+		_, ok := appFuncMap[app.CommandName]
+		if ok {
+			wg2.Add(1)
+			//assign the app function to the appCTX, from the passed in appFunctionMap
+			app.AF = appFuncMap[app.CommandName]
+			go func(wg2 *sync.WaitGroup, app AppCTX) {
+				err = ScheduleApp(app.Schedule, func() { RunAppCTX(app) }, scheduler)
+				if err != nil {
+					errChan <- errors.New("Error in RunScheduledAppsFromConfig(): " + err.Error())
+				}
+				wg2.Done()
+			}(&wg2, app)
+		} else {
+			fmt.Println("command not found: ", app.CommandName)
+		}
 	}
 	wg2.Wait()
 	go func() { //run in go routine as this will block execution otherwise
