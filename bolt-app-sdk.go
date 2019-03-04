@@ -277,7 +277,6 @@ func RunScheduledAppsFromConfig(appConfig ConfigCTX, appFuncMap map[string]AppFu
 	var err error
 	//range over passed in apps, from the appConfig
 	for _, app := range appConfig.Apps {
-		fmt.Println("app: ", app.Args)
 		_, ok := appFuncMap[app.CommandName]
 		if ok {
 			wg2.Add(1)
