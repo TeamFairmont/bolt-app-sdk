@@ -90,6 +90,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 		for { //repeat until doneChan has ben sent
 			select { //payloadChan is sent from app functions
 			case payload := <-payloadChan:
+				fmt.Println("Payload recieved")
 				//marshal the payload into json object
 				p, err := json.Marshal(payload)
 				if err != nil {
@@ -111,7 +112,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 					errChan <- err
 					return
 				}
-
+				fmt.Println("payload hmac's")
 				req, err := http.NewRequest("POST", boltURL, bytes.NewBuffer(hmacToSend))
 				if err != nil {
 					wg.Done()
@@ -119,7 +120,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 					errChan <- err
 					return
 				}
-
+				fmt.Println("request ready boltURL: ", boltURL)
 				// The tls.Config settings are set server side, but may also be set client side.
 				// InsecureSkipVerify allows self-signed certificates in development environments.
 				// This must be set to false for production using a trusted certificate authority.
@@ -133,10 +134,10 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 					},
 					DisableCompression: true, // Compressed TLS is vulnerable to attacks
 				}
-
+				fmt.Println("transpor tready")
 				timeout := time.Duration(8 * time.Minute)
 				client := &http.Client{Timeout: timeout, Transport: tr}
-
+				fmt.Println("client ready")
 				//set auth and header
 				req.SetBasicAuth(userName, "pw ignored")
 				req.Close = true //close the request
@@ -147,6 +148,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 					errChan <- err
 					return
 				}
+				fmt.Println("client.DO")
 				//read response body
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
