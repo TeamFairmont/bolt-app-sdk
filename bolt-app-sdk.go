@@ -146,6 +146,7 @@ func RunApp(boltURL, userName, passWord string, af AppFunc, appCTX AppCTX) error
 					wg.Done()
 					err = errors.New("Error in Client.Do in Bolt App Sdk: " + err.Error())
 					errChan <- err
+					fmt.Println("err: ", err)
 					return
 				}
 				fmt.Println("client.DO")
