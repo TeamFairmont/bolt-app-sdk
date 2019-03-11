@@ -324,7 +324,9 @@ func SendPayloadToBolt(payload interface{}, boltURL, authName, hmacPass string) 
 		err = errors.New("Error encoding payload with HMAC in Bolt App Sdk: " + err.Error())
 		return nil, err
 	}
-
+	fmt.Println("boltAppSDK:")
+	fmt.Println("boltURL: ", boltURL)
+	fmt.Println("message:\n", string(p))
 	req, err := http.NewRequest("POST", boltURL, bytes.NewBuffer(hmacToSend))
 	if err != nil {
 		err = errors.New("Error making http request in Bolt App Sdk: " + err.Error())
