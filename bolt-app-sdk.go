@@ -41,6 +41,15 @@ type AppCTX struct {
 	Args               []interface{}
 	Schedule           JobSchedule        `json:"schedule"`
 	CV3WebServiceCreds CV3WebServiceCreds `json:"cv3WebServiceCreds"`
+	FTPCreds           FTPCreds           `json:"ftpCreds"`
+}
+
+//FTPCreds is the struct to hold ftp credentials for scheduled apps
+type FTPCreds struct {
+	ServerURL         string `json:"serverURL"`
+	User              string `json:"user"`
+	Pass              string `json:"pass"`
+	PricingImportPath string `json:"pricingImportPath"`
 }
 
 //CV3WebServiceCreds is the struct to hold data for a clients CV3 web service Credentials
